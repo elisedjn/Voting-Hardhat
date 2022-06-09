@@ -30,3 +30,7 @@
 .vote-actions > .vote-no {
   background-color: #333;
 }
+
+.vote-actions > .cancel-vote{
+  background-color: #e13f1b;
+}

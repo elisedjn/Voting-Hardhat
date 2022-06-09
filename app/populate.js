@@ -1,7 +1,7 @@
 import Voting from './artifacts/contracts/Voting.sol/Voting';
 import buildProposal from './proposal';
-import {address} from './__config';
-import {ethers} from 'ethers';
+import { address } from './__config';
+import { ethers } from 'ethers';
 
 const provider = new ethers.providers.Web3Provider(ethereum);
 const contract = new ethers.Contract(address, Voting.abi, provider);
@@ -9,8 +9,13 @@ const contract = new ethers.Contract(address, Voting.abi, provider);
 const proposals = [];
 async function populateProposals() {
   const count = await contract.proposalCount();
-  for(let i = 0; i < count.toNumber(); i++) {
-    proposals.push(await contract.proposals(i));
+  const signer = provider.getSigner();
+  await ethereum.request({ method: 'eth_requestAccounts' });
+  for (let i = 0; i < count.toNumber(); i++) {
+    const proposal = await contract.proposals(i);
+    const isOpen = await contract.isOpenForVote(i);
+    const hasVoted = await contract.connect(signer).hasVoted(i);
+    proposals.push({ proposal, hasVoted, isOpen });
   }
   renderProposals();
   listenForProposals();
@@ -18,14 +23,14 @@ async function populateProposals() {
 
 async function listenForProposals() {
   const contract = new ethers.Contract(address, Voting.abi, provider);
-  contract.on("ProposalCreated", async (id) => {
-    if(!proposals[id]) {
+  contract.on('ProposalCreated', async (id) => {
+    if (!proposals[id]) {
       const proposal = await contract.proposals(id);
       proposals.push(proposal);
       renderProposals();
     }
   });
-  contract.on("VoteCast", async (id) => {
+  contract.on('VoteCast', async (id) => {
     const proposal = await contract.proposals(id);
     proposals[id] = proposal;
     renderProposals();
@@ -33,23 +38,31 @@ async function listenForProposals() {
 }
 
 function renderProposals() {
-  const container = document.getElementById("container");
-  container.innerHTML = proposals.map(buildProposal).join("");
+  const container = document.getElementById('container');
+  container.innerHTML = proposals.map(buildProposal).join('');
   proposals.forEach((proposal, id) => {
     addListeners(id);
   });
 }
 
 function addListeners(id) {
-  document.getElementById(`yes-${id}`).addEventListener("click", async () => {
+  document.getElementById(`yes-${id}`).addEventListener('click', async () => {
+    console.log('yes', id);
     const signer = provider.getSigner();
     await ethereum.request({ method: 'eth_requestAccounts' });
     await contract.connect(signer).castVote(id, true);
   });
-  document.getElementById(`no-${id}`).addEventListener("click", async () => {
+  document.getElementById(`no-${id}`).addEventListener('click', async () => {
+    console.log('no', id);
     const signer = provider.getSigner();
     await ethereum.request({ method: 'eth_requestAccounts' });
     await contract.connect(signer).castVote(id, false);
+  });
+  document.getElementById(`cancel-${id}`).addEventListener('click', async () => {
+    console.log('Hello', id);
+    const signer = provider.getSigner();
+    await ethereum.request({ method: 'eth_requestAccounts' });
+    await contract.connect(signer).removeVote(id);
   });
 }
 
